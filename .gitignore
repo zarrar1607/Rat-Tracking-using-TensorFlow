@@ -1,0 +1,11 @@
+Video/BaselineDark2.mp4
+Video/TestFile_video.mp4
+Video/BaselineDark.mp4
+Video/Baseline2.mp4
+Video/Baseline.mp4
+dataset
+__pycache__/create_dataset.cpython-39.pyc
+__pycache__/dataset_ops.cpython-39.pyc
+__pycache__/get_dataset.cpython-39.pyc
+__pycache__/preprocessor.cpython-39.pyc
+__pycache__/simple_architecture.cpython-39.pyc
