@@ -120,6 +120,7 @@ class RatDetector:
         if ground_truth_bbox is not None:
             gt_bbox_pixels = np.array(ground_truth_bbox) * self.img_size
             self.draw_bbox(resized_image, gt_bbox_pixels, "GT", (255, 0, 0))
+            print(f"Ground Truth BBox (pixels): {ground_truth_bbox}")
 
         # Draw prediction
         self.draw_bbox(resized_image, bbox_pred, "Pred", (0, 255, 0))
@@ -146,11 +147,28 @@ class RatDetector:
 
         plt.show()
 
+    def get_entry(self, index = 0):
+        df = pd.read_csv(self.csv_path)
+        row = df.iloc[index]
+        
+        image_path = row["image_path"]
+        bbox_str = row["bounding_box"]
+        bbox_vals = [float(x) for x in bbox_str.split(",")]
+
+        # Convert absolute bbox coordinates to normalized format based on original image size
+        orig_w, orig_h = 640, 480  # Adjust based on dataset properties
+        bbox_normalized = np.array([bbox_vals[0] / orig_w, bbox_vals[1] / orig_h,
+                                    bbox_vals[2] / orig_w, bbox_vals[3] / orig_h])
+        
+        return image_path, bbox_normalized
+    
+
 
 # Example usage:
 if __name__ == "__main__":
     detector = RatDetector()
-    detector.build_model()
-    detector.train_model(epochs=5)
+    # detector.build_model()
+    # detector.train_model(epochs=5)
     detector.load_model('model.h5')
-    detector.infer_image("dataset/Baseline_frame_1.jpg", ground_truth_bbox=[0.48, 0.05, 0.83, 0.47])
+    image_path, ground_truth_bbox = detector.get_entry(0)
+    detector.infer_image(image_path, ground_truth_bbox)
