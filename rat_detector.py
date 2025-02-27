@@ -9,11 +9,12 @@ from simple_architecture import build_model
 
 
 class RatDetector:
-    def __init__(self, csv_path="labels.csv", batch_size=8, img_size=224):
+    def __init__(self, csv_path="labels.csv", batch_size=8, img_size=224, model_path = "model.h5"):
         self.csv_path = csv_path
         self.batch_size = batch_size
         self.img_size = img_size
         self.model = None
+        self.model_path = model_path
 
     def parse_row(self, row):
         """Parses a row from the CSV to extract image, bounding box, and classification."""
@@ -82,12 +83,14 @@ class RatDetector:
 
         self.model.fit(train_ds, epochs=epochs, validation_data=test_ds)
 
-        self.model.save("rat_detection_model.h5")
-        print("Model saved as 'rat_detection_model.h5'")
+        self.model.save(self.model_path)
+        print("Model saved as " + self.model_path)
 
-    def load_model(self, model_path="rat_detection_model.h5"):
+    def load_model(self, model_path="model.h5"):
         """Loads a pre-trained model."""
-        self.model = tf.keras.models.load_model(model_path, compile=False)
+        if(model_path):
+            self.model_path = model_path
+        self.model = tf.keras.models.load_model(self.model_path, compile=False)
 
     def preprocess_image(self, image_path):
         """Preprocesses an image for inference."""
@@ -112,6 +115,7 @@ class RatDetector:
 
         classification_pred = predictions[0][0]  # Probability of presence
         bbox_pred = predictions[1][0] * self.img_size  # Convert to pixel coordinates
+
 
         print(f"Classification Probability: {classification_pred}")
         print(f"Predicted BBox (pixels): {bbox_pred}")
@@ -150,25 +154,36 @@ class RatDetector:
     def get_entry(self, index = 0):
         df = pd.read_csv(self.csv_path)
         row = df.iloc[index]
-        
+
         image_path = row["image_path"]
         bbox_str = row["bounding_box"]
         bbox_vals = [float(x) for x in bbox_str.split(",")]
 
-        # Convert absolute bbox coordinates to normalized format based on original image size
-        orig_w, orig_h = 640, 480  # Adjust based on dataset properties
-        bbox_normalized = np.array([bbox_vals[0] / orig_w, bbox_vals[1] / orig_h,
-                                    bbox_vals[2] / orig_w, bbox_vals[3] / orig_h])
-        
+        # Read the image to get original size
+        image = cv2.imread(image_path)
+        if image is None:
+            raise FileNotFoundError(f"Could not load image from {image_path}")
+
+        orig_h, orig_w, _ = image.shape  # Get height and width
+        print(image.shape)
+
+        # Normalize bounding box coordinates
+        bbox_normalized = np.array([
+            bbox_vals[0] / orig_w,  # x_min
+            bbox_vals[1] / orig_h,  # y_min
+            bbox_vals[2] / orig_w,  # x_max
+            bbox_vals[3] / orig_h   # y_max
+        ])
+
         return image_path, bbox_normalized
     
 
 
 # Example usage:
 if __name__ == "__main__":
-    detector = RatDetector()
+    detector = RatDetector(img_size = 144, model_path='model.h5')
     # detector.build_model()
     # detector.train_model(epochs=5)
-    detector.load_model('model.h5')
+    detector.load_model()
     image_path, ground_truth_bbox = detector.get_entry(0)
     detector.infer_image(image_path, ground_truth_bbox)
