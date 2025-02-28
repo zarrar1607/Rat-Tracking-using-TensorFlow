@@ -6,6 +6,7 @@ import os
 import matplotlib.pyplot as plt
 from tensorflow.keras import layers, models
 from simple_architecture import build_model
+# from mcunet import build_model
 
 
 class RatDetector:
@@ -83,8 +84,14 @@ class RatDetector:
         )
         self.model.summary()
 
-    def train_model(self, epochs=5):
-        """Trains the model on the dataset and returns the training history."""
+    def train_model(self, epochs=5, learning_rate=0.001):
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        self.model.compile(
+            optimizer=optimizer,
+            loss={"classification": "binary_crossentropy", "bbox": "mse"},
+            loss_weights={"classification": 1.0, "bbox": 1.0},
+            metrics={"classification": "accuracy"},
+        )
         dataset = self.get_data_entries()
         train_ds, test_ds = self.split_dataset(dataset)
         history = self.model.fit(train_ds, epochs=epochs, validation_data=test_ds)
@@ -207,7 +214,7 @@ def plot_and_save_training_history(history, filename="training_history.png"):
 if __name__ == "__main__":
     detector = RatDetector(csv_path="labels.csv", batch_size = 8, model_path="model.h5")
     detector.build_model()
-    history = detector.train_model(epochs=1)
+    history = detector.train_model(epochs=20)
     detector.load_model("model.h5")
     plot_and_save_training_history(history, filename="./training_history.png")
     image_path, ground_truth_bbox = detector.get_entry(1)

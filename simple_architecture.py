@@ -13,7 +13,10 @@ def build_model(input_shape=(224, 224, 3)):
         x = layers.Dense(64, activation="relu")(x)
 
         classification_output = layers.Dense(1, activation="sigmoid", name="classification")(x)
-        bbox_output = layers.Dense(4, activation="linear", name="bbox")(x)
+        
+        y = layers.Dense(32, activation="relu")(x)
+        y = layers.Dense(16, activation="relu")(y)
+        bbox_output = layers.Dense(4, activation="sigmoid", name="bbox")(y)
 
         return models.Model(inputs=inputs, outputs=[classification_output, bbox_output])
 
