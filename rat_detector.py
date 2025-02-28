@@ -5,8 +5,8 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 from tensorflow.keras import layers, models
-from simple_architecture import build_model
-# from mcunet import build_model
+# from simple_architecture import build_model
+from mcunet import build_model
 
 
 class RatDetector:
