@@ -2,7 +2,7 @@ import cv2
 import pandas as pd
 import os
 
-CSV_PATH = 'labels.csv'
+CSV_PATH = 'annotations.csv'
 
 # Read the CSV file
 df = pd.read_csv(CSV_PATH)
@@ -44,14 +44,14 @@ while True:
         continue
 
     # Parse bounding_box (assumed format: "xmin,ymin,xmax,ymax")
-    bbox_str = row['bounding_box']
+    bbox_str = row['bbox']
     x1, y1, x2, y2 = map(int, bbox_str.split(','))
 
     # Draw the bounding box
     cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
     # Optionally, draw text (e.g., frame number)
-    frame_number = row['frame']
+    frame_number = row['frame_index']
     cv2.putText(image, f"Frame: {frame_number}", (x1, max(y1 - 10, 0)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 

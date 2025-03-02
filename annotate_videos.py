@@ -5,11 +5,11 @@ import os
 # --------------------------
 # Configuration
 # --------------------------
-VIDEO_FILENAME = 'TestFile_video'
+VIDEO_FILENAME = 'Baseline'
 VIDEO_PATH = './Video/' + VIDEO_FILENAME + '.mp4'
-OUTPUT_DIR = './annotated_frames'
+OUTPUT_DIR = 'annotated_frames'
 ANNOTATIONS_CSV = 'annotations.csv'
-csv_path = os.path.join(OUTPUT_DIR, ANNOTATIONS_CSV)
+csv_path = ANNOTATIONS_CSV
 
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
@@ -195,7 +195,7 @@ for i, bbox in enumerate(annotations):
         bbox_str = f"{x1},{y1},{x2},{y2}"
         csv_rows.append({
             'frame_index': i,
-            'filename': filename,
+            'image_path': filepath,
             'bbox': bbox_str
         })
 cap.release()
