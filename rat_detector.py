@@ -4,8 +4,8 @@ import numpy as np
 import cv2
 import os
 import matplotlib.pyplot as plt
-from simple_architecture import build_model
-# from mcunet import build_model  # assuming you want to use this architecture
+# from simple_architecture import build_model
+from mcunet import build_model  # assuming you want to use this architecture
 
 class RatDetector:
     def __init__(self, 
