@@ -18,6 +18,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = torchvision.models.detection.fasterrcnn_mobilenet_v3_large_fpn(pretrained=True)
 # load the model on to the computation device
 model.eval().to(device)
+torch.save(model.state_dict(), 'Model.pth')
 
 # read the image and run the inference for detections
 image = Image.open(args['input'])
