@@ -5,3 +5,5 @@ FastRcNN/input/video_1.mp4
 .gitignore
 .gitignore
 FastRcNN/input/image_1.jpg
+*.tfevents.*
+
