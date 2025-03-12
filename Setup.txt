@@ -1,2 +1,0 @@
-PS C:\Machine Learning> Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-PS C:\Machine Learning> .\tensorflow\Scripts\activate
