@@ -4,3 +4,5 @@ venv
 FastRcNN/input/video_1.mp4
 FastRcNN/input/image_1.jpg
 *.tfevents.*
+\libtorch
+\build
