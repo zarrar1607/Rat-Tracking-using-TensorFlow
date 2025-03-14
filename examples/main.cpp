@@ -37,7 +37,7 @@ int main() {
     Ort::Session session(env, model_path.c_str(), session_options);
 
     // 3. Open video
-    std::string video_path = "../Video/TestFile_Video.mp4";
+    std::string video_path = "../Video/BaselineDark.mp4";
     cv::VideoCapture cap(video_path);
     if (!cap.isOpened()) {
         std::cerr << "Error opening video: " << video_path << std::endl;
@@ -47,7 +47,7 @@ int main() {
     // Model expects 320x320 (adjust if needed)
     const int input_w = 320;
     const int input_h = 320;
-    float conf_threshold = 0.7f; // Confidence threshold
+    float conf_threshold = 0.2f; // Confidence threshold
 
     // Your model's actual node names:
     //  - "output" => Nx4 bounding boxes
