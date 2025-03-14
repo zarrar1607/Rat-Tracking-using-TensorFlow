@@ -1,4 +1,4 @@
-Video/*.mp4
+*.mp4
 __pycache__
 venv
 FastRcNN/input/video_1.mp4
