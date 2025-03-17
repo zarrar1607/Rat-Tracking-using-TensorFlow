@@ -45,6 +45,7 @@ int main() {
     // --------------------------
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
     Ort::SessionOptions session_options;
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
     Ort::Session session(env, "../model.onnx", session_options);
 
     Ort::AllocatorWithDefaultOptions allocator;
