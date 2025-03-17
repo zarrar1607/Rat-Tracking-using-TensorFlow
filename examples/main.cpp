@@ -1,177 +1,160 @@
-#include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
+#include <onnxruntime_cxx_api.h>
+#include <chrono>
 #include <iostream>
 #include <vector>
 #include <array>
-#include <string>
 
-// Helper function: Preprocess a frame into [1, 3, 320, 320] float data
-static std::vector<float> preprocessFrame(const cv::Mat& frame, int input_w, int input_h) {
-    // 1) Resize to (320, 320)
+// Preprocessing: convert frame (BGR) to normalized tensor data in CHW order.
+std::vector<float> preprocess(const cv::Mat& frame, const cv::Size& target_size = cv::Size(320, 320)) {
+    // Convert BGR to RGB
+    cv::Mat rgb;
+    cv::cvtColor(frame, rgb, cv::COLOR_BGR2RGB);
+    
+    // Resize to target size
     cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(input_w, input_h));
-
-    // 2) Convert BGR -> RGB
-    cv::cvtColor(resized, resized, cv::COLOR_BGR2RGB);
-
-    // 3) Convert to float32 in [0..1]
-    resized.convertTo(resized, CV_32FC3, 1.0f / 255.0f);
-
-    // 4) Reorder from HWC to CHW
-    std::vector<float> input_tensor_values(input_w * input_h * 3);
-    int channel_size = input_w * input_h;
-    for (int y = 0; y < input_h; ++y) {
-        for (int x = 0; x < input_w; ++x) {
-            cv::Vec3f pixel = resized.at<cv::Vec3f>(y, x);
-            // pixel = [R, G, B]
-            input_tensor_values[0 * channel_size + y * input_w + x] = pixel[0];
-            input_tensor_values[1 * channel_size + y * input_w + x] = pixel[1];
-            input_tensor_values[2 * channel_size + y * input_w + x] = pixel[2];
-        }
+    cv::resize(rgb, resized, target_size);
+    
+    // Convert to float and scale to [0,1]
+    resized.convertTo(resized, CV_32FC3, 1.0 / 255.0);
+    
+    // Normalize using mean and std (same as training)
+    cv::Mat channels[3];
+    cv::split(resized, channels);
+    float mean[3] = {0.485f, 0.456f, 0.406f};
+    float std_val[3] = {0.229f, 0.224f, 0.225f};
+    for (int i = 0; i < 3; i++) {
+        channels[i] = (channels[i] - mean[i]) / std_val[i];
+    }
+    cv::merge(channels, 3, resized);
+    
+    // Convert HWC to CHW
+    std::vector<cv::Mat> chw;
+    cv::split(resized, chw);
+    std::vector<float> input_tensor_values;
+    for (int i = 0; i < 3; i++) {
+        input_tensor_values.insert(input_tensor_values.end(), 
+            (float*)chw[i].datastart, (float*)chw[i].dataend);
     }
     return input_tensor_values;
 }
 
-int main(int argc, char** argv) {
+int main() {
     // --------------------------
     // 1) ONNX Runtime Setup
     // --------------------------
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
     Ort::SessionOptions session_options;
-    // session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_DISABLE_ALL);
+    Ort::Session session(env, "../model.onnx", session_options);
 
-    // Load the ONNX model (adjust the path if needed)
-    std::string model_path = "../model.onnx"; 
-    Ort::Session session(env, model_path.c_str(), session_options);
-
+    Ort::AllocatorWithDefaultOptions allocator;
+    auto input_name_alloc = session.GetInputNameAllocated(0, allocator);
+    std::cout << "Input name: " << input_name_alloc.get() << std::endl;
+    
     // --------------------------
-    // 2) OpenCV: Open a video
+    // 2) Video Capture Setup
     // --------------------------
-    // Adjust this to your actual video file path
     std::string video_path = "../Video/BaselineDark.mp4";
     cv::VideoCapture cap(video_path);
     if (!cap.isOpened()) {
         std::cerr << "Error opening video file: " << video_path << std::endl;
         return -1;
     }
-
-    // The model expects 320x320
-    const int input_w = 320;
-    const int input_h = 320;
-
-    // Confidence threshold (matching your Python logic)
-    float conf_threshold = 0.2f;
-
-    // The ONNX model has 1 input node: "input"
-    const char* input_names[] = {"input"};
-
-    // The ONNX model has 3 output nodes: "boxes", "scores", "labels"
-    // as you saw in Netron
-    const char* output_names[] = {"boxes", "scores", "labels"};
-    size_t num_outputs = 3;
-
+    
     // --------------------------
-    // 3) Video Inference Loop
+    // 3) Main Loop
     // --------------------------
-    while (true) {
-        cv::Mat frame;
-        if (!cap.read(frame)) {
-            break;  // end of video
-        }
-
-        // 3.1) Preprocess the frame to [1,3,320,320]
-        std::vector<float> input_data = preprocessFrame(frame, input_w, input_h);
-        std::array<int64_t, 4> input_shape = {1, 3, input_h, input_w};
-
-        // Create ONNX Runtime input tensor
+    cv::Mat frame;
+    while (cap.read(frame)) {
+        // Store original frame dimensions for later scaling
+        int orig_w = frame.cols;
+        int orig_h = frame.rows;
+        cv::Size target_size(320, 320);
+        
+        // Preprocess the frame
+        std::vector<float> input_tensor_values = preprocess(frame, target_size);
+        
+        // Create input tensor shape [1, 3, 320, 320]
+        std::array<int64_t, 4> input_shape = {1, 3, target_size.height, target_size.width};
         Ort::MemoryInfo memory_info = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
         Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-            memory_info,
-            input_data.data(),
-            input_data.size(),
-            input_shape.data(),
-            input_shape.size()
+            memory_info, input_tensor_values.data(), input_tensor_values.size(), input_shape.data(), input_shape.size()
         );
-
-        // 3.2) Run inference requesting the 3 outputs
-        auto output_tensors = session.Run(
-            Ort::RunOptions{nullptr},
-            input_names, &input_tensor, 1,
-            output_names, num_outputs
-        );
-        // output_tensors[0] => bounding boxes Nx4
-        // output_tensors[1] => scores Nx
-        // output_tensors[2] => labels Nx
-
+        
+        // Set input and output names (assuming model outputs "boxes", "scores", "labels" in that order)
+        const char* input_names[] = { input_name_alloc.get() };
+        const char* output_names[] = { "boxes", "scores", "labels" };
+        
+        // Run inference and measure time
+        auto start = std::chrono::high_resolution_clock::now();
+        auto output_tensors = session.Run(Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 3);
+        auto end = std::chrono::high_resolution_clock::now();
+        double inf_time = std::chrono::duration<double, std::milli>(end - start).count();
+        
         // --------------------------
-        // 4) Parse the 3 outputs
+        // 4) Process Model Outputs
         // --------------------------
-
-        // 4.1) bounding boxes
-        auto& boxes_tensor = output_tensors[0];
-        auto boxes_info = boxes_tensor.GetTensorTypeAndShapeInfo();
-        float* boxes_data = boxes_tensor.GetTensorMutableData<float>();
-        std::vector<int64_t> boxes_shape = boxes_info.GetShape(); // e.g. [N,4]
-        int64_t num_boxes = boxes_shape[0];  // how many
-
-        // 4.2) scores
-        auto& scores_tensor = output_tensors[1];
-        auto scores_info = scores_tensor.GetTensorTypeAndShapeInfo();
-        float* scores_data = scores_tensor.GetTensorMutableData<float>();
-        // shape might be [N]
-
-        // 4.3) labels
-        auto& labels_tensor = output_tensors[2];
-        auto labels_info = labels_tensor.GetTensorTypeAndShapeInfo();
-        float* labels_data = labels_tensor.GetTensorMutableData<float>();
-        // shape might be [N]
-
-        // --------------------------
-        // 5) Keep Single Highest
-        // --------------------------
-        float best_score = -1.0f;
+        // Output 0: boxes (shape [N, 4])
+        float* boxes_ptr = output_tensors[0].GetTensorMutableData<float>();
+        Ort::TensorTypeAndShapeInfo boxes_info = output_tensors[0].GetTensorTypeAndShapeInfo();
+        std::vector<int64_t> boxes_shape = boxes_info.GetShape();
+        int64_t num_boxes = boxes_shape[0];  // number of detections
+        
+        // Output 1: scores (shape [N])
+        float* scores_ptr = output_tensors[1].GetTensorMutableData<float>();
+        
+        // Output 2: labels (shape [N]) - assuming int64_t type
+        int64_t* labels_ptr = output_tensors[2].GetTensorMutableData<int64_t>();
+        
+        // Filter predictions: keep only detections with score > threshold and then select the best one.
+        float threshold = 0.2f;
         int best_idx = -1;
-        for (int i = 0; i < num_boxes; ++i) {
-            float score = scores_data[i];
-            std::cout<< "i: " << i <<", score: "<<score<<"\n";
-            if (score >= conf_threshold && score > best_score) {
-                best_score = score;
+        float best_score = threshold;
+        for (int i = 0; i < num_boxes; i++) {
+            if (scores_ptr[i] > best_score) {
+                best_score = scores_ptr[i];
                 best_idx = i;
             }
         }
-
-        // If we found a detection
-        if (best_idx >= 0) {
-            float x1 = boxes_data[best_idx*4 + 0];
-            float y1 = boxes_data[best_idx*4 + 1];
-            float x2 = boxes_data[best_idx*4 + 2];
-            float y2 = boxes_data[best_idx*4 + 3];
-            float cls = labels_data[best_idx];
-
-            // If coords are in [0..320], scale them to the original frame
-            float scale_x = static_cast<float>(frame.cols) / input_w;
-            float scale_y = static_cast<float>(frame.rows) / input_h;
-            int rx1 = static_cast<int>(x1 * scale_x);
-            int ry1 = static_cast<int>(y1 * scale_y);
-            int rx2 = static_cast<int>(x2 * scale_x);
-            int ry2 = static_cast<int>(y2 * scale_y);
-
-            // Draw bounding box and label
-            cv::rectangle(frame, cv::Point(rx1, ry1), cv::Point(rx2, ry2),
-                          cv::Scalar(0, 255, 0), 2);
+        
+        // --------------------------
+        // 5) Scale and Draw Bounding Box
+        // --------------------------
+        if (best_idx != -1) {
+            // Each box has 4 values: [x1, y1, x2, y2] in resized (320×320) coordinates.
+            float x1 = boxes_ptr[best_idx * 4 + 0];
+            float y1 = boxes_ptr[best_idx * 4 + 1];
+            float x2 = boxes_ptr[best_idx * 4 + 2];
+            float y2 = boxes_ptr[best_idx * 4 + 3];
+            
+            // Scale box back to original frame dimensions.
+            float scale_x = static_cast<float>(orig_w) / static_cast<float>(target_size.width);
+            float scale_y = static_cast<float>(orig_h) / static_cast<float>(target_size.height);
+            int orig_x1 = static_cast<int>(x1 * scale_x);
+            int orig_y1 = static_cast<int>(y1 * scale_y);
+            int orig_x2 = static_cast<int>(x2 * scale_x);
+            int orig_y2 = static_cast<int>(y2 * scale_y);
+            
+            // Draw the bounding box and label on the original frame.
+            cv::rectangle(frame, cv::Point(orig_x1, orig_y1), cv::Point(orig_x2, orig_y2), cv::Scalar(0, 255, 0), 2);
             std::string label_text = "Rat: " + std::to_string(best_score);
-            cv::putText(frame, label_text, cv::Point(rx1, ry1 - 5),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,255,0), 1);
+            cv::putText(frame, label_text, cv::Point(orig_x1, orig_y1 - 10),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+            // Draw the centroid as a red dot.
+            int cx = (orig_x1 + orig_x2) / 2;
+            int cy = (orig_y1 + orig_y2) / 2;
+            cv::circle(frame, cv::Point(cx, cy), 3, cv::Scalar(0, 0, 255), -1);
         }
-
-        // 6) Show the result
+        
+        // Display inference time on the frame.
+        std::string inf_text = "Inference: " + std::to_string(inf_time) + " ms";
+        cv::putText(frame, inf_text, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 255, 255), 2);
+        
         cv::imshow("Predictions", frame);
-        if (cv::waitKey(1) == 27) { // ESC key
+        if (cv::waitKey(1) == 'q')
             break;
-        }
     }
-
+    
     cap.release();
     cv::destroyAllWindows();
     return 0;
