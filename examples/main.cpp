@@ -38,10 +38,11 @@ int main(int argc, char** argv) {
     // --------------------------
     Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "test");
     Ort::SessionOptions session_options;
-    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    // session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+    session_options.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_DISABLE_ALL);
 
     // Load the ONNX model (adjust the path if needed)
-    std::string model_path = "model.onnx"; 
+    std::string model_path = "../model.onnx"; 
     Ort::Session session(env, model_path.c_str(), session_options);
 
     // --------------------------
@@ -133,6 +134,7 @@ int main(int argc, char** argv) {
         int best_idx = -1;
         for (int i = 0; i < num_boxes; ++i) {
             float score = scores_data[i];
+            std::cout<< "i: " << i <<", score: "<<score<<"\n";
             if (score >= conf_threshold && score > best_score) {
                 best_score = score;
                 best_idx = i;
