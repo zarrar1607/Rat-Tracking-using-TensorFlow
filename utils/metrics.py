@@ -1,18 +1,5 @@
-import math
-import warnings
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
-from utils import SimpleClass, TryExcept, plt_settings
-
-OKS_SIGMA = (
-    np.array([0.26, 0.25, 0.25, 0.35, 0.35, 0.79, 0.79, 0.72, 0.72, 0.62, 0.62, 1.07, 1.07, 0.87, 0.87, 0.89, 0.89])
-    / 10.0
-)
-
 
 def bbox_ioa(box1, box2, iou=False, eps=1e-7):
     """
