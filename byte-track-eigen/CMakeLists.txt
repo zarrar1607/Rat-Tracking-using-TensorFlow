@@ -85,10 +85,29 @@ target_compile_definitions(ByteTrackEigen PRIVATE BUILDING_BYTE_TRACK_EIGEN)
 # ------------------------------------------------
 # Add your main demo executable
 # ------------------------------------------------
-add_executable(byte_track_demo src/main.cpp)
-target_link_libraries(byte_track_demo PRIVATE ByteTrackEigen)
 
-# (Optional) If your code or ByteTrackEigen needs OpenCV:
+# Specify ONNX Runtime paths
+set(ONNXRUNTIME_ROOT "./onnxruntime-linux-x64-1.21.0")
+
+# Include ONNX Runtime headers and libraries.
+include_directories("${ONNXRUNTIME_ROOT}/include")
+link_directories("${ONNXRUNTIME_ROOT}/lib")
+
+# Find the ONNX Runtime library
+find_library(ONNXRUNTIME_LIBRARY 
+    NAMES onnxruntime
+    PATHS "${ONNXRUNTIME_ROOT}/lib"
+    NO_DEFAULT_PATH
+)
+if(NOT ONNXRUNTIME_LIBRARY)
+    message(FATAL_ERROR "Could not find ONNX Runtime library in ${ONNXRUNTIME_ROOT}/lib")
+endif()
+
+# Add the ByteTrack library (already built as ByteTrackEigen)
+add_executable(byte_track_demo src/main.cpp)
+target_link_libraries(byte_track_demo PRIVATE ByteTrackEigen ${ONNXRUNTIME_LIBRARY})
+
+# Find OpenCV
 find_package(OpenCV REQUIRED)
-target_include_directories(byte_track_demo PRIVATE ${OpenCV_INCLUDE_DIRS})
-target_link_libraries(byte_track_demo PRIVATE ${OpenCV_LIBS})
+include_directories(${OpenCV_INCLUDE_DIRS})
+target_link_libraries(byte_track_demo PRIVATE onnxruntime ${OpenCV_LIBS})
