@@ -120,10 +120,11 @@ int main()
     // ----------------------------------------------------------------
     // B) Video Capture
     // ----------------------------------------------------------------
-    // std::string video_path = "../Video/BaselineDark.mp4";
+    std::string video_path = "../Video/BaselineDark.mp4";
+    // std::string video_path = "../Video/TestFile_video.mp4";
     // std::string video_path = "../Video/movie.mp4";
     // std::string video_path = "../Video/Cohort_1.mp4";
-    std::string video_path = "../Video/3_Mice.mp4";
+    // std::string video_path = "../Video/3_Mice.mp4";
     cv::VideoCapture cap(video_path);
     if (!cap.isOpened()) {
         std::cerr << "Error opening video file: " << video_path << std::endl;
@@ -198,7 +199,7 @@ int main()
 
         // 5) Get top K=2 detections above threshold=0.2 in resized coords
         float conf_thresh = 0.2f;
-        int top_k = 3;
+        int top_k = 1;
         Eigen::MatrixXf topk_dets = select_topk_detections(
             boxes_ptr, scores_ptr, num_boxes, conf_thresh, top_k, input_size
         );
@@ -272,7 +273,7 @@ int main()
         for (const auto& kv : track_history) {
             const auto &pts = kv.second;
             if (pts.size() >= 2) {
-                cv::polylines(frame, pts, false, cv::Scalar(230, 230, 230), 2);
+                cv::polylines(frame, pts, false, cv::Scalar(230, 0, 0), 2);
             }
         }
 
