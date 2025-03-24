@@ -12,3 +12,6 @@ FastRcNN/input/image_1.jpg
 *-workspace
 *.webm
 \new_dataset
+.jpg
+.png
+
