@@ -14,4 +14,7 @@ FastRcNN/input/image_1.jpg
 \new_dataset
 .jpg
 .png
+*.zip
 
+new_dataset
+*.jpg
