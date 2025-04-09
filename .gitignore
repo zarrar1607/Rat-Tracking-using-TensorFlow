@@ -19,3 +19,6 @@ FastRcNN/input/image_1.jpg
 new_dataset
 *.jpg
 fine_tune
+*.pth
+Best_Model.pth
+Final_Model.pth
